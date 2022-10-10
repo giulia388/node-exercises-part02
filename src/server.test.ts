@@ -248,3 +248,69 @@ describe("DELETE /planets/:id", () => {
         expect(res.text).toContain("Cannot DELETE /planets/asdf");
     });
 });
+
+/**
+ * These tests depend on: src/lib/middleware/multer.mock.ts
+ * It uses multer.memoryStorage, so no files are written to disk
+ */
+
+describe("POST /planets/:id/photo", () => {
+    test("Valid request with PNG file upload", async () => {
+        await req
+            .post("/planets/23/photo")
+            .attach("photo", "test-fixtures/photos/file.png")
+            .expect(201)
+            .expect("Access-Control-Allow-Origin", "http://localhost:8080");
+    });
+
+    test("Valid request with JPG file upload", async () => {
+        await req
+            .post("/planets/23/photo")
+            .attach("photo", "test-fixtures/photos/file.jpg")
+            .expect(201)
+            .expect("Access-Control-Allow-Origin", "http://localhost:8080");
+    });
+
+    test("Invalid request with text file upload", async () => {
+        const res = await req
+            .post("/planets/23/photo")
+            .attach("photo", "test-fixtures/photos/file.txt")
+            .expect(500)
+            .expect("Content-Type", /text\/html/);
+
+        expect(res.text).toContain(
+            "Error: the uploaded file must be a JPG or a PNG image."
+        );
+    });
+
+    test("Planet does not exist", async () => {
+        // @ts-ignore
+        prismaMock.planet.update.mockRejectedValue(new Error("Error"));
+
+        const res = await req
+            .post("/planets/23/photo")
+            .attach("photo", "test-fixtures/photos/file.png")
+            .expect(404)
+            .expect("Content-Type", /text\/html/);
+
+        expect(res.text).toContain("Cannot POST /planets/23/photo");
+    });
+
+    test("Invalid planet ID", async () => {
+        const res = await req
+            .post("/planets/asdf/photo")
+            .expect(404)
+            .expect("Content-Type", /text\/html/);
+
+        expect(res.text).toContain("Cannot POST /planets/asdf/photo");
+    });
+
+    test("Invalid request with no file upload", async () => {
+        const res = await req
+            .post("/planets/23/photo")
+            .expect(400)
+            .expect("Content-Type", /text\/html/);
+
+        expect(res.text).toContain("No photo file uploaded");
+    });
+});
